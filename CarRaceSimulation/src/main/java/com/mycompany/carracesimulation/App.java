@@ -1,14 +1,23 @@
 package com.mycompany.carracesimulation;
 
+import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
@@ -25,7 +34,9 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 
 public class App extends Application {
-    Color[] colors = {Color.RED, Color.DODGERBLUE, Color.LIMEGREEN, Color.GOLD};
+    Color[] colors = {Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW};
+    Group[] cars = new Group[4];
+    TranslateTransition[] moves = new TranslateTransition[4];
     int currentCar = 0;
     Stage stage;
     MediaPlayer player;
@@ -63,15 +74,16 @@ public class App extends Application {
         stage.show();
     }
 
-    // draws the track and the cars
+    // draws the track, the cars and the buttons
     void showRace() {
         player.stop();
-
+        
         Pane track = new Pane();
+        track.setPrefSize(800, 340);
         track.setStyle("-fx-background-color: lightgreen;");
 
         Rectangle road = new Rectangle(0, 40, 800, 280);
-        road.setFill(Color.DARKGRAY);
+        road.setFill(Color.GRAY);
         track.getChildren().add(road);
 
         // lines between the lanes
@@ -94,14 +106,67 @@ public class App extends Application {
 
         // one car per lane, front of the car on the start line
         for (int i = 0; i < 4; i++) {
-            Group car = makeCar(i + 1, colors[i]);
-            car.setLayoutX(10);
-            car.setLayoutY(49 + i * 70);
-            track.getChildren().add(car);
+            cars[i] = makeCar(i + 1, colors[i]);
+            cars[i].setLayoutX(10);
+            cars[i].setLayoutY(49 + i * 70);
+            track.getChildren().add(cars[i]);
+
+            // moves the car from the start line to the finish line with random speed
+            moves[i] = new TranslateTransition(Duration.seconds(randomTime()), cars[i]);
+            moves[i].setToX(610);
+            moves[i].setInterpolator(Interpolator.LINEAR);
         }
 
-        stage.setScene(new Scene(track, 800, 360));
+        Button startButton = new Button("Start");
+        Button pauseButton = new Button("Pause");
+        Button resetButton = new Button("Reset");
+        startButton.setOnAction(e -> startRace());
+        pauseButton.setOnAction(e -> pauseRace());
+        resetButton.setOnAction(e -> resetRace());
+
+        // slider changes how fast the cars go
+        Slider speedSlider = new Slider(0.5, 3, 1);
+        speedSlider.valueProperty().addListener((obs, oldValue, newValue) -> {
+            for (TranslateTransition move : moves) {
+                move.setRate(newValue.doubleValue());
+            }
+        });
+
+        HBox controls = new HBox(10, startButton, pauseButton, resetButton, new Label("Speed:"), speedSlider);
+        controls.setAlignment(Pos.CENTER_LEFT);
+        controls.setPadding(new Insets(10));
+
+        BorderPane racePane = new BorderPane();
+        racePane.setCenter(track);
+        racePane.setBottom(controls);
+
+        stage.setScene(new Scene(racePane));
         stage.sizeToScene();
+    }
+    //actions for buttons
+    void startRace() {
+        for (TranslateTransition move : moves) {
+            move.play();    
+        }
+    }
+
+    void pauseRace() {
+        for (TranslateTransition move : moves) {
+            move.pause();
+        }
+    }
+
+    void resetRace() {
+        for (int i = 0; i < 4; i++) {
+            moves[i].stop();
+            cars[i].setTranslateX(0);
+            moves[i].setDuration(Duration.seconds(randomTime()));   // new random time for the next race
+        }
+    }
+
+    // random time in seconds
+    double randomTime() {
+        return 4 + Math.random() * 4;
     }
 
     // builds one car out of shapes
